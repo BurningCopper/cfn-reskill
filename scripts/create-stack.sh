@@ -1,0 +1,1 @@
+aws cloudformation create-stack --stack-name cfn-reskill-stack --template-body file://../templates/template.yaml

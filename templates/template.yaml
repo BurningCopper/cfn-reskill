@@ -1,0 +1,78 @@
+Resources:
+  MyInstance:
+    Type:  AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-05d72852800cbf29e
+      Tags:
+        - Key: Name
+          Value: "IML Bootcamp EC2 Instance"
+      UserData: !Base64 
+        'Fn::Join':
+          - ''
+          - - |
+              #!/bin/bash -xe
+            - |
+              # Install the files and packages from the metadata
+            - '/opt/aws/bin/cfn-init -v '
+            - '         --stack '
+            - !Ref 'AWS::StackName'
+            - '         --resource MyInstance '
+            - '         --configsets configs '
+            - '         --region '
+            - !Ref 'AWS::Region'
+            # - "# Start up the cfn-hup daemon to listen for changes to the Web Server
+            #   metadata\n"
+            # - "/opt/aws/bin/cfn-hup || error_exit 'Failed to start cfn-hup'\n"
+            - |+
+
+      KeyName: capstone3
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          configs:
+            - "config-webapp"
+        config-webapp:
+            packages:
+              yum:
+                php: []
+                httpd: []
+            files:
+              /var/www/html/index.php:
+                content: <?php print "Hello World, IML Bootcamp was here!"; ?>
+                mode: '000600'
+                owner: apache
+                group: apache
+              /etc/cfn/hooks.d/cfn-auto-reloader.conf:
+                content: !Sub |
+                  [cfn-auto-reloader-hook]
+                  triggers=post.update
+                  path=Resources.MyInstance.Metadata.AWS::CloudFormation::Init
+                  action=/opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource MyInstance --configsets configs --region ${AWS::Region}
+                  runas=root
+                mode: "000400"
+                owner: "root"
+                group: "root"
+              /etc/cfn/cfn-hup.conf:
+                content: !Sub |
+                  [main]
+                  stack=${AWS::StackName}
+                  interval=1
+                mode: "000400"
+                owner: "root"
+                group: "root"
+            services:
+              sysvinit:
+                httpd:
+                  enabled: 'true'
+                  ensureRunning: 'true'
+                cfn-hup:
+                  enabled: 'true'
+                  ensureRunning: 'true'
+                  files:
+                    - "/etc/cfn/cfn-hup.conf"
+                    - "/etc/cfn/hooks.d/cfn-auto-reloader.conf"
+Outputs:
+  EC2DNSName:
+    Description: Public DNS Output
+    Value: !GetAtt MyInstance.PublicDnsName
